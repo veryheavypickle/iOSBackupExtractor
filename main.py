@@ -3,8 +3,15 @@ from yodas import Menu, Yoda
 
 
 def getDecryptionKey(udid, clearPassword=None):
-    if not clearPassword:
-        clearPassword = input("Enter the encryption password for device\n{0}: ".format(udid))
+    encrypted = False
+    devices = iOSbackup.getDeviceList()
+    name = udid
+    for device in devices:
+        if device["udid"] == udid:
+            encrypted = device["encrypted"]
+            name = device["name"]
+    if not clearPassword and encrypted:
+        clearPassword = input("Enter the encryption password for device {0}\nThis will take a minute: ".format(name))
     try:
         key = iOSbackup(udid=udid,
                         cleartextpassword=clearPassword)
@@ -22,17 +29,22 @@ def selectDevice():
     deviceNames = [backText]
     for deviceData in devices:
         deviceNames.append(deviceData["name"])
-    deviceMenu = Menu(deviceNames, title="Select a device")
-    selected = deviceMenu.select()
+    menu = Menu(deviceNames, title="Select a device")
+    selected = menu.select()
 
     if selected == backText:
-        return None
+        return None, None
     return selected, devices
 
 
 def openNewDevice():
     global deviceFolder, mainMenu
     deviceName, devices = selectDevice()
+
+    if deviceName is None:
+        return None
+    elif devices is None:
+        return None
 
     # Convert device name to udid
     udid = None
@@ -46,10 +58,12 @@ def openNewDevice():
     try:
         assert content["derivedkey"]
         assert content["udid"]
+        assert content["name"]
     except KeyError:
         key = getDecryptionKey(udid)
         content["udid"] = udid
         content["derivedkey"] = key
+        content["name"] = deviceName
         device.write(content)
     mainMenu.add({deviceName: device})
 
@@ -62,26 +76,28 @@ def deviceMenu(yoda):
     """
     yodaFile = yoda.contents()
     device = iOSbackup(udid=yodaFile["udid"], derivedkey=yodaFile["derivedkey"])
-    menu = Menu(["Back",
-                 {"List Apps": listApps},
-                 {"Restore Photos": restorePhotos}], title="Device options", execute=False)
+    menu = Menu(["Back", listApps, restorePhotos, closeDevice], title="Device options", execute=False)
     selected = menu.select()
     if selected == "Back":
         return None
     else:
-        selected(device)
+        selected(device, yoda)
 
 
 # Device functions
-def listApps(device):
+def listApps(device, yoda):
+    assert isinstance(device, iOSbackup)
+    assert isinstance(yoda, Yoda)
     apps = list(device.manifest['Applications'].keys())
     for app in apps:
         print(app)
 
 
-def restorePhotos(device):
+def restorePhotos(device, yoda):
+    assert isinstance(device, iOSbackup)
+    assert isinstance(yoda, Yoda)
     global deviceFolder
-    restoredDirectory = "restored"
+    restoredDirectory = yoda.contents()["name"]
     if deviceFolder[len(deviceFolder) - 1] == "/":
         restoredDirectory = deviceFolder + restoredDirectory
     else:
@@ -94,6 +110,12 @@ def restorePhotos(device):
     print("Restoring completed!")
 
 
+def closeDevice(device, yoda):
+    assert isinstance(device, iOSbackup)
+    assert isinstance(yoda, Yoda)
+    yoda.delete()
+
+
 def main():
     global mainMenu
     while True:
@@ -103,7 +125,6 @@ def main():
 
 
 if __name__ == '__main__':
-    menuItems = [{"Quit": exit}, openNewDevice]
-    mainMenu = Menu(menuItems, title="Main Menu")
+    mainMenu = Menu([exit, openNewDevice], title="Main Menu")
     deviceFolder = "devices"
     main()
