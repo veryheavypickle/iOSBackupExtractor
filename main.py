@@ -1,4 +1,3 @@
-import os
 from iOSbackup import iOSbackup
 from yodas import Menu, Yoda
 
@@ -88,9 +87,11 @@ def restorePhotos(device):
     else:
         restoredDirectory = deviceFolder + "/" + restoredDirectory
     print("Restoring to path: {0}".format(restoredDirectory))
+    print("Warning, this will take some time")
     device.getFolderDecryptedCopy('Media',
                                   targetFolder=restoredDirectory,
                                   includeDomains='CameraRollDomain')
+    print("Restoring completed!")
 
 
 def main():
