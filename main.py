@@ -65,7 +65,7 @@ def openNewDevice():
         content["derivedkey"] = key
         content["name"] = deviceName
         device.write(content)
-    mainMenu.add({deviceName: device})
+    mainMenu.append({deviceName: device})
 
 
 def deviceMenu(yoda):
